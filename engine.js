@@ -506,7 +506,7 @@ export function makeEngine(wasm, opentype) {
     if (!str.trim()) return { text: null, info: {} };
     const missing = [];
     for (const ch of str) if (ch.trim() && font.charToGlyph(ch).index === 0) missing.push(ch);
-    if (missing.length) warnings.push({ level: 'warn', msg: `Il font non ha questi caratteri: ${[...new Set(missing)].join(' ')} (saranno vuoti).` });
+    if (missing.length) warnings.push({ level: 'warn', code: 'missingChars', p: { chars: [...new Set(missing)].join(' ') }, msg: `Il font non ha questi caratteri: ${[...new Set(missing)].join(' ')} (saranno vuoti).` });
     const paths = font.getPaths(str, 0, 0, 100, { kerning: true, features: { liga: false, rlig: false } });   // niente legature: un glifo per lettera
     const chars = [...str];
     const glyphs = []; // per glifo: corpi, isole, carattere
@@ -570,8 +570,8 @@ export function makeEngine(wasm, opentype) {
     const er = T(T(text.offset(-0.55, 'Round')).offset(0.55, 'Round'));
     const loss = 1 - er.area() / text.area();
     info.thinLoss = loss;
-    if (loss > 0.22) warnings.push({ level: 'warn', msg: 'Scritta lunga: alcuni filetti sono sotto 1,1 mm. Aumenta "Ispessimento scritta" o accorcia il testo.' });
-    if (k * 100 * 0.5 < 6 && str.length > 10) warnings.push({ level: 'info', msg: 'Testo lungo: le lettere minuscole sono piccole (< 6 mm).' });
+    if (loss > 0.22) warnings.push({ level: 'warn', code: 'thin', msg: 'Scritta lunga: alcuni filetti sono sotto 1,1 mm. Aumenta "Ispessimento scritta" o accorcia il testo.' });
+    if (k * 100 * 0.5 < 6 && str.length > 10) warnings.push({ level: 'info', code: 'small', msg: 'Testo lungo: le lettere minuscole sono piccole (< 6 mm).' });
     return { text, info };
   }
 
@@ -583,7 +583,7 @@ export function makeEngine(wasm, opentype) {
     let kx = ky;
     if (112 * kx > ornEndLimit) {
       kx = ornEndLimit / 112;
-      warnings.push({ level: 'info', msg: 'Decorazione ristretta in larghezza per non superare le orecchie.' });
+      warnings.push({ level: 'info', code: 'narrow', msg: 'Decorazione ristretta in larghezza per non superare le orecchie.' });
     }
     const F = filigree(P, kx, ky, ZB);
     const right = F.orn;
@@ -614,7 +614,7 @@ export function makeEngine(wasm, opentype) {
         rib = T(rib.intersect(orn));
       }
     }
-    if (dropped) warnings.push({ level: 'info', msg: `${dropped} pezzetti di filigrana tagliati dalle lettere sono stati rimossi.` });
+    if (dropped) warnings.push({ level: 'info', code: 'dropped', p: { n: dropped }, msg: `${dropped} pezzetti di filigrana tagliati dalle lettere sono stati rimossi.` });
     // ogni pezzo della scritta deve toccare svolazzo o filigrana
     let anchors = 0, textFinal = text;
     if (text) {
@@ -693,7 +693,7 @@ export function makeEngine(wasm, opentype) {
     // larghezza: così le pendenze diventano più ripide (più sicure). Il contrario creerebbe sbalzi.
     const ornEndLimit = band.quarter - 8;               // come la decorata: lascia libero il tratto che fa molla
     const kx = Math.min(ky, ornEndLimit / 120);
-    if (kx < ky * 0.9) warnings.push({ level: 'info', msg: 'Decorazione ristretta in larghezza per non arrivare dietro le orecchie (le pendenze restano stampabili).' });
+    if (kx < ky * 0.9) warnings.push({ level: 'info', code: 'narrowSelf', msg: 'Decorazione ristretta in larghezza per non arrivare dietro le orecchie (le pendenze restano stampabili).' });
     const map = (polys) => polys.map((p) => p.map(([x, y]) => [x * kx, ZB + (y - 5.5) * ky]));
     const Fs = filigreeSelf(P.filigree === 'ricca', P.beads);
     const right = map(Fs.orn), ribR = map(Fs.rib);
@@ -773,8 +773,8 @@ export function makeEngine(wasm, opentype) {
       selfInfo.airFiligree = tot; selfInfo.worstAir = worst;
     }
     const heavyTrim = selfInfo.trimmed > 25 && P.font !== 'classico';
-    if (selfInfo.trimmed > 1) warnings.push({ level: heavyTrim ? 'warn' : 'info', msg: `Rifilati ${selfInfo.trimmed.toFixed(1).replace('.', ',')} mm² di scritta che si sarebbero stampati nel vuoto${heavyTrim ? ': con questo corsivo le lettere perdono qualche ricciolo, il carattere Classico resta intatto' : ' (terminali delle lettere, quasi invisibili)'}.` });
-    if (selfInfo.worstAir > 3) warnings.push({ level: 'warn', msg: `Una zona di filigrana di ${selfInfo.worstAir.toFixed(1).replace('.', ',')} mm² resta senza appoggio: con queste proporzioni un ricciolo può cedere un po'. Avvicina l'altezza a 44,5 mm.` });
+    if (selfInfo.trimmed > 1) warnings.push({ level: heavyTrim ? 'warn' : 'info', code: heavyTrim ? 'trimHeavy' : 'trim', p: { a: selfInfo.trimmed }, msg: `Rifilati ${selfInfo.trimmed.toFixed(1).replace('.', ',')} mm² di scritta che si sarebbero stampati nel vuoto${heavyTrim ? ': con questo corsivo le lettere perdono qualche ricciolo, il carattere Classico resta intatto' : ' (terminali delle lettere, quasi invisibili)'}.` });
+    if (selfInfo.worstAir > 3) warnings.push({ level: 'warn', code: 'air', p: { a: selfInfo.worstAir, h: 44.5 }, msg: `Una zona di filigrana di ${selfInfo.worstAir.toFixed(1).replace('.', ',')} mm² resta senza appoggio: con queste proporzioni un ricciolo può cedere un po'. Avvicina l'altezza a 44,5 mm.` });
     const beads = [...pearlsR, ...pearlsR.map((b) => ({ ...b, c: [-b.c[0], b.c[1]] }))];
     return { band2d, orn, rib, swash: rail, text, beads, kx, ky, TB, ZB, info, anchors, selfInfo, ornEnd: 120 * kx };
   }
@@ -1108,18 +1108,18 @@ export function makeEngine(wasm, opentype) {
         },
         warnings,
       };
-      if (comps.length > 1) warnings.push({ level: 'error', msg: `Il modello è in ${comps.length} pezzi separati: qualcosa non è collegato.` });
+      if (comps.length > 1) warnings.push({ level: 'error', code: 'pieces', p: { n: comps.length }, msg: `Il modello è in ${comps.length} pezzi separati: qualcosa non è collegato.` });
       const [bw, bd, bname] = P.printer === 'mk4s' ? [250, 210, 'della MK4S (250 × 210 mm)'] : [P.bed, P.bed, `da ${P.bed} mm`];
       const fits = (sizeAll[0] <= bw && sizeAll[1] <= bd) || (sizeAll[0] <= bd && sizeAll[1] <= bw);
-      if (!fits) warnings.push({ level: 'error', msg: `Non entra nel piatto ${bname}: servono ${sizeAll[0].toFixed(0)} × ${sizeAll[1].toFixed(0)} mm.` });
+      if (!fits) warnings.push({ level: 'error', code: P.printer === 'mk4s' ? 'bedMk4s' : 'bed', p: { s: P.bed, x: sizeAll[0], y: sizeAll[1] }, msg: `Non entra nel piatto ${bname}: servono ${sizeAll[0].toFixed(0)} × ${sizeAll[1].toFixed(0)} mm.` });
       const it = (v, d = 1) => v.toFixed(d).replace('.', ',');
-      if (spring.strainOn > mat.eps) warnings.push({ level: 'error', msg: `Infilandola la fascia si flette del ${it(spring.strainOn * 100)}%, oltre il limite del ${P.material} (${it(mat.eps * 100)}%): probabilmente si spezza. Usa PETG, serraggio più morbido o fascia più sottile.` });
-      else if (spring.strainOn > 0.8 * mat.eps) warnings.push({ level: 'warn', msg: `Infilandola la fascia si flette del ${it(spring.strainOn * 100)}%, vicino al limite del ${P.material} (${it(mat.eps * 100)}%). Aprila con delicatezza o scegli PETG.` });
-      if (spring.force > 6) warnings.push({ level: 'warn', msg: `Serraggio forte (circa ${it(spring.force)} N per lato): dopo un po' può dare fastidio.` });
-      if (spring.force < 0.8) warnings.push({ level: 'warn', msg: 'Serraggio molto leggero: potrebbe scivolare.' });
-      if (!P.supports && sup.contacts) warnings.push({ level: 'info', msg: `${sup.contacts} punti da sostenere: attiva i supporti ad albero nello slicer.` });
-      if ((sup.worstCantilever || 0) > 3) warnings.push({ level: 'warn', msg: `Uno sbalzo libero di ${sup.worstCantilever.toFixed(1).replace('.', ',')} mm non è raggiungibile dai supporti: potrebbe colare un po'.` });
-      if (sup.worstBridge > 12) warnings.push({ level: 'warn', msg: `Un ponte di ${sup.worstBridge.toFixed(0)} mm dentro una lettera o un ricciolo: lungo, controlla la ventola.` });
+      if (spring.strainOn > mat.eps) warnings.push({ level: 'error', code: 'strainOver', p: { pct: spring.strainOn * 100, mat: P.material, lim: mat.eps * 100 }, msg: `Infilandola la fascia si flette del ${it(spring.strainOn * 100)}%, oltre il limite del ${P.material} (${it(mat.eps * 100)}%): probabilmente si spezza. Usa PETG, serraggio più morbido o fascia più sottile.` });
+      else if (spring.strainOn > 0.8 * mat.eps) warnings.push({ level: 'warn', code: 'strainNear', p: { pct: spring.strainOn * 100, mat: P.material, lim: mat.eps * 100 }, msg: `Infilandola la fascia si flette del ${it(spring.strainOn * 100)}%, vicino al limite del ${P.material} (${it(mat.eps * 100)}%). Aprila con delicatezza o scegli PETG.` });
+      if (spring.force > 6) warnings.push({ level: 'warn', code: 'forceHigh', p: { f: spring.force }, msg: `Serraggio forte (circa ${it(spring.force)} N per lato): dopo un po' può dare fastidio.` });
+      if (spring.force < 0.8) warnings.push({ level: 'warn', code: 'forceLow', msg: 'Serraggio molto leggero: potrebbe scivolare.' });
+      if (!P.supports && sup.contacts) warnings.push({ level: 'info', code: 'slicerSup', p: { n: sup.contacts }, msg: `${sup.contacts} punti da sostenere: attiva i supporti ad albero nello slicer.` });
+      if ((sup.worstCantilever || 0) > 3) warnings.push({ level: 'warn', code: 'cantilever', p: { mm: sup.worstCantilever }, msg: `Uno sbalzo libero di ${sup.worstCantilever.toFixed(1).replace('.', ',')} mm non è raggiungibile dai supporti: potrebbe colare un po'.` });
+      if (sup.worstBridge > 12) warnings.push({ level: 'warn', code: 'bridge', p: { mm: sup.worstBridge }, msg: `Un ponte di ${sup.worstBridge.toFixed(0)} mm dentro una lettera o un ricciolo: lungo, controlla la ventola.` });
       lap('mesh'); result.stats.ms = Date.now() - t0; result.stats.timing = tm;
       return result;
     } catch (e) {

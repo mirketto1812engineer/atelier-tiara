@@ -1,5 +1,5 @@
 // Cache dell'app: aggiornata a ogni nuova versione pubblicata.
-const CACHE = 'atelier-tiara-202611030013';
+const CACHE = 'atelier-tiara-202611030042';
 const FILES = [
  "./",
  "engine.js",
@@ -9,6 +9,7 @@ const FILES = [
  "fonts/parisienne-400.ttf",
  "fonts/pinyon-script-400.ttf",
  "fonts/tangerine-700.ttf",
+ "i18n.js",
  "icons/apple-touch-icon.png",
  "icons/icon-192.png",
  "icons/icon-512.png",
