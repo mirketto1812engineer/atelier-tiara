@@ -1,0 +1,55 @@
+ATELIER TIARA — versione autonoma, gratuita, senza Claude
+=========================================================
+
+Questa cartella è l'app completa. Gira tutta nel browser: nessun server, nessun account
+per chi la usa, funziona anche offline dopo la prima apertura. Basta metterla su un
+hosting di siti statici gratuito.
+
+IMPORTANTE: scompatta lo zip e carica il CONTENUTO della cartella "atelier-tiara"
+(index.html deve stare nella radice del sito).
+
+
+OPZIONE 1 — Netlify (la più semplice, niente programmi)
+-------------------------------------------------------
+1. Crea un account gratuito su netlify.com.
+2. Apri app.netlify.com/drop e trascina la cartella "atelier-tiara".
+3. In pochi secondi hai un indirizzo del tipo  qualcosa.netlify.app
+   Dalle impostazioni del sito puoi cambiarlo, per esempio in  atelier-tiara.netlify.app
+4. Per aggiornarla in futuro: nella pagina del sito, sezione Deploys, trascina di nuovo la cartella.
+
+
+OPZIONE 2 — Cloudflare Pages
+----------------------------
+1. Account gratuito su cloudflare.com, poi Workers & Pages > Crea > Pages > Carica risorse (upload).
+2. Dai un nome al progetto e trascina la cartella: indirizzo  nome.pages.dev
+
+
+OPZIONE 3 — GitHub Pages
+------------------------
+1. Crea un repository pubblico e caricaci dentro i file della cartella.
+2. Settings > Pages > Source: branch main, cartella / (root).
+3. Indirizzo:  tuonome.github.io/nome-repository
+
+
+SUL TELEFONO COME UN'APP
+------------------------
+- Android (Chrome): apri l'indirizzo, menu ⋮ > "Installa app" o "Aggiungi a schermata Home".
+- iPhone (Safari): apri l'indirizzo, tasto Condividi > "Aggiungi alla schermata Home".
+Dopo la prima apertura funziona anche senza connessione.
+
+
+SOLO SUL TUO PC, SENZA INTERNET
+-------------------------------
+Il doppio clic su index.html NON basta: i browser bloccano i moduli dai file locali.
+Serve un mini server locale. Con Python installato, dentro la cartella:
+    python -m http.server 8000
+poi apri  http://localhost:8000
+
+
+NOTE
+----
+- Chi ha l'indirizzo può usare l'app: i siti non sono indicizzati finché non li condividi,
+  ma sono pubblici. L'app non raccoglie dati: i parametri restano nel browser di chi la usa.
+- I file scaricati (zip con STL, progetto PrusaSlicer per la MK4S, fascia di prova) sono
+  identici a quelli della versione su claude.ai.
+- Componenti di terze parti e licenze: vedi LICENZE.txt.
