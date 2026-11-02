@@ -207,7 +207,7 @@ const SECTIONS = [
   ['modello', 'Modello'], ['scritta', 'Scritta'], ['taglia', 'Taglia e fascia'], ['decoro', 'Decorazione'], ['supporti', 'Supporti ad albero'], ['stampa', 'Stampante e file'],
 ];
 const MODEL_HELP = {
-  autoportante: 'Si stampa in piedi senza supporti: niente da staccare. Filigrana più semplice e scritta appoggiata su una barretta (la prima versione).',
+  autoportante: 'Si stampa in piedi senza supporti: niente da staccare. Ogni ricciolo, perla e foglia è disegnato per reggersi da solo; la scritta poggia su una barretta.',
   decorata: 'Più ghirigori, perline e scritta libera su uno svolazzo sottile. Servono i supporti ad albero, che puoi generare qui.',
 };
 const F = [
@@ -234,8 +234,9 @@ const F = [
   { k: 'teethH', s: 'taglia', lv: 3, t: 'range', l: 'Altezza dentini', u: 'mm', min: 0.6, max: 2, st: 0.1 },
 
   { k: 'height', s: 'decoro', lv: 2, t: 'range', l: 'Altezza della corona', u: 'mm', min: 45, max: 75, st: 0.5, help: 'Altezza massima, con le maiuscole. La decorazione scala in proporzione.' },
-  { only: 'decorata', k: 'filigree', s: 'decoro', lv: 2, t: 'seg', l: 'Filigrana', opts: [['ricca', 'Ricca'], ['sobria', 'Sobria']] },
-  { only: 'decorata', k: 'beads', s: 'decoro', lv: 2, t: 'toggle', l: 'Perline sulle punte' },
+  { k: 'filigree', s: 'decoro', lv: 2, t: 'seg', l: 'Filigrana', opts: [['ricca', 'Ricca'], ['sobria', 'Sobria']] },
+  { k: 'beads', s: 'decoro', lv: 2, t: 'toggle', l: 'Perle sulle punte', help: 'Nella versione autoportante sono perle a goccia, su un cono a 45°: non servono supporti.' },
+  { k: 'bandDeco', s: 'decoro', lv: 2, t: 'toggle', l: 'Rombi in rilievo sulla fascia' },
   { k: 'ornT', s: 'decoro', lv: 3, t: 'range', l: 'Spessore filigrana', u: 'mm', min: 1.6, max: 3, st: 0.1 },
   { k: 'ribH', s: 'decoro', lv: 3, t: 'range', l: 'Rilievo delle nervature', u: 'mm', min: 0, max: 1.2, st: 0.05 },
   { k: 'textT', s: 'decoro', lv: 3, t: 'range', l: 'Spessore scritta', u: 'mm', min: 2.4, max: 4.5, st: 0.1 },

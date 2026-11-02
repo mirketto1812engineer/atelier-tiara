@@ -7,7 +7,7 @@ export const DEFAULTS = {
   model: 'decorata', text: 'Micron', headCirc: 54, supports: true,
   // intermedio
   font: 'great-vibes', fit: 'medio', height: 58.5, filigree: 'ricca', beads: true, dotStyle: 'stella',
-  teeth: true, material: 'PETG', supGap: 0.2, supTipD: 0.8, supSpacing: 3.0,
+  teeth: true, bandDeco: true, material: 'PETG', supGap: 0.2, supTipD: 0.8, supSpacing: 3.0,
   // esperto
   bandH: 5.5, bandT: 3.2, wrapDeg: 122, flareL: 20, flareR: 16, frontGap: 7,
   ornT: 2.0, ribH: 0.7, textT: 3.2, swashT: 2.4, textW: 74, textH: 22, thicken: 0.4, descender: 'fondi',
@@ -361,8 +361,8 @@ function filigree(P, kx, ky, ZB) {
 // Filigrana AUTOPORTANTE (prima versione): ogni ricciolo chiude con l'occhio appoggiato al giro sotto
 // e ha un gambo che lo regge dalla fascia; foglie ripide; la scritta poggia su una barretta.
 // Coordinate di progetto: fascia alta 5.5, linea di base scritta a 31.5 (5.5 + 26).
-function filigreeSelf() {
-  const orn = [], rib = [];
+function filigreeSelf(rich = true, withPearls = true) {
+  const orn = [], rib = [], pearls = [];
   const z = 5.5, TBH = 26.0;
   const W1 = 2.3, W2 = 2.0, W3 = 1.7;
   const stroke = (pts, w0, w1 = w0) => {
@@ -394,44 +394,61 @@ function filigreeSelf() {
     const [bx, by] = bottom;
     stroke(catmull([[xb, z - 0.6], [(xb + bx) / 2 + sway, (z + by) / 2], [bx, by + 0.9]], 30), wBot, wTop);
   };
-  const hook = (xb, c, r, hA, ax, { w = W2, ccwDir = true, supX = null, mids = null } = {}) => {
+  // perla a goccia: sfera su cono a 45° (autoportante in ogni direzione); la punta entra 0.6 mm nel tratto
+  const pearlOn = (x, topY, r) => {
+    if (!withPearls || !rich) return;
+    const cy = topY - 0.6 + r * Math.SQRT2, s = r / Math.SQRT2;
+    pearls.push({ c: [x, cy], r });
+    orn.push(circle([x, cy], r, 28), ccw([[x - s, cy - s], [x + s, cy - s], [x, cy - r * Math.SQRT2]]));
+  };
+  const hook = (xb, c, r, hA, ax, { w = W2, ccwDir = true, supX = null, mids = null, pr = 0 } = {}) => {
     const side = ccwDir ? -1 : 1;
     const start = [c[0] + side * r, c[1]];
     const way = [[xb, z - 0.6]];
     if (mids) for (const [x, h] of mids) way.push([x, z + h]);
     else way.push([xb - 0.25 * (xb - ax) * 0.3, z + 0.5 * hA]);
     way.push([ax, z + hA], [start[0] + 0.35 * (ax - start[0]), z + hA - 0.25 * (z + hA - start[1])], [start[0], start[1] + 1.4], start);
-    stroke(catmull(way, 34), w, w * 0.95);
+    const pts = catmull(way, 34);
+    stroke(pts, w, w * 0.95);
     const bottom = curl(c, r, w * 0.95, ccwDir);
     support(bottom, supX !== null ? supX : bottom[0] + 1.6);
+    if (pr) { const t = pts.reduce((m, p) => (p[1] > m[1] ? p : m), pts[0]); pearlOn(t[0], t[1] + w / 2, pr); }
   };
   // giglio centrale
   lf([0, z - 0.6], [0, z + TBH - 0.3], 8.6);
   lf([0.4, z - 1.6], [17.0, z + 0.3], 5.2, 0.10);
   lf([7.0, z + 12.0], [12.6, z + 19.6], 3.0, 0.10);
+  if (rich) lf([12.5, z + 1.0], [15.0, z + 9.8], 2.6, -0.10);           // foglia ripida sulla foglia distesa
   // corno d'ariete interno: tocca la barretta e regge il centro
   const railBot = TBH - 1.9, c1 = [20.6, z + 14.6], r1 = 3.9;
   stroke(catmull([[3.2, z + 0.4], [6.2, z + 9.0], [9.0, z + 17.5], [13.5, z + railBot - 0.8], [19.5, z + railBot - 1.0],
                   [23.6, z + 20.6], [c1[0] + r1, c1[1] + 1.5], [c1[0] + r1, c1[1]]], 34), W1, W2);
   support(curl(c1, r1, W2, false), 23.0, 2.7, 2.2, 0.3);
+  if (rich) lf([26.2, z - 0.6], [28.4, z + 8.8], 2.4, -0.10);           // foglia tra i due gambi
   // grande arco: il suo ricciolo regge l'estremità della barretta
-  hook(55.0, [34.9, z + 21.6], 3.8, 30.6, 40.0, { w: W1, supX: 29.2, mids: [[52.2, 10.5], [49.0, 21.5], [45.0, 28.6]] });
+  hook(55.0, [34.9, z + 21.6], 3.8, 30.6, 40.0, { w: W1, supX: 29.2, mids: [[52.2, 10.5], [49.0, 21.5], [45.0, 28.6]], pr: 1.8 });
   lf([32.4, z + 7.5], [37.8, z + 15.6], 3.4, 0.10);
-  lf([45.5, z - 0.6], [41.0, z + 10.5], 3.6, 0.12);
+  if (rich) {
+    hook(46.5, [41.6, z + 13.8], 2.4, 20.0, 44.2, { w: W3, pr: 1.3 });   // gancio dentro l'arco
+    hook(63.0, [58.6, z + 9.5], 2.1, 15.0, 60.6, { w: W3, pr: 1.2 });    // gancio tra arco e cascata
+  } else lf([45.5, z - 0.6], [41.0, z + 10.5], 3.6, 0.12);
   // cascata laterale
-  const cascade = (xb, hA, r) => {
+  const cascade = (xb, hA, r, pr) => {
     const w = r > 3 ? W2 : W3;
     const cx = xb - r - w - 1.7, cy = z + hA - r - w - 1.5;
-    hook(xb, [cx, cy], r, hA, (cx - r + xb) / 2 + 0.6, { w, mids: [[xb - 0.4, 0.5 * hA], [xb - 1.2, 0.85 * hA]] });
+    hook(xb, [cx, cy], r, hA, (cx - r + xb) / 2 + 0.6, { w, mids: [[xb - 0.4, 0.5 * hA], [xb - 1.2, 0.85 * hA]], pr });
   };
-  cascade(77.0, 25.0, 3.7);
-  cascade(97.0, 18.0, 3.1);
-  cascade(113.0, 12.5, 2.5);
-  lf([61.5, z - 0.6], [65.5, z + 10.0], 3.3, -0.12);
+  cascade(77.0, 25.0, 3.7, 1.5);
+  cascade(97.0, 18.0, 3.1, 1.4);
+  cascade(113.0, 12.5, 2.5, 1.2);
+  if (rich) {
+    lf([77.6, z + 7.0], [80.8, z + 17.2], 2.6, -0.08);                   // foglie ripide sui gambi della cascata
+    lf([97.5, z + 5.0], [100.4, z + 12.6], 2.3, -0.08);
+  } else lf([61.5, z - 0.6], [65.5, z + 10.0], 3.3, -0.12);
   lf([82.0, z - 0.6], [85.8, z + 8.5], 3.0, -0.12);
   lf([101.0, z - 0.6], [104.2, z + 6.6], 2.7, -0.12);
   lf([116.5, z - 0.6], [119.0, z + 5.0], 2.5, -0.12);
-  return { orn, rib };
+  return { orn, rib, pearls };
 }
 
 function swashPath(kx, ky, ZB) {
@@ -617,7 +634,7 @@ export function makeEngine(wasm, opentype) {
       }
       if (add.length) textFinal = U([text, ...add]);
     }
-    return { band2d, orn, rib, swash, text: textFinal, beads, kx, ky, TB, ZB, info, anchors };
+    return { band2d, orn, rib, swash, text: textFinal, beads, kx, ky, TB, ZB, info, anchors, ornEnd: 112 * kx };
   }
 
   // Analisi a strati come nella prima versione: un pixel è sostenuto se c'è materiale sostenuto entro
@@ -678,8 +695,10 @@ export function makeEngine(wasm, opentype) {
     const kx = Math.min(ky, ornEndLimit / 120);
     if (kx < ky * 0.9) warnings.push({ level: 'info', msg: 'Decorazione ristretta in larghezza per non arrivare dietro le orecchie (le pendenze restano stampabili).' });
     const map = (polys) => polys.map((p) => p.map(([x, y]) => [x * kx, ZB + (y - 5.5) * ky]));
-    const Fs = filigreeSelf();
+    const Fs = filigreeSelf(P.filigree === 'ricca', P.beads);
     const right = map(Fs.orn), ribR = map(Fs.rib);
+    const kr = Math.sqrt(kx * ky);
+    const pearlsR = Fs.pearls.map((p) => ({ c: [p.c[0] * kx, ZB + (p.c[1] - 5.5) * ky], r: p.r * kr, cone: true }));
     let orn = CS([...right, ...mirrorPolys(right)]);
     let rib = CS([...ribR, ...mirrorPolys(ribR)]);
     const TB = ZB + 26 * ky;                                  // linea di base = sopra la barretta
@@ -756,7 +775,8 @@ export function makeEngine(wasm, opentype) {
     const heavyTrim = selfInfo.trimmed > 25 && P.font !== 'classico';
     if (selfInfo.trimmed > 1) warnings.push({ level: heavyTrim ? 'warn' : 'info', msg: `Rifilati ${selfInfo.trimmed.toFixed(1).replace('.', ',')} mm² di scritta che si sarebbero stampati nel vuoto${heavyTrim ? ': con questo corsivo le lettere perdono qualche ricciolo, il carattere Classico resta intatto' : ' (terminali delle lettere, quasi invisibili)'}.` });
     if (selfInfo.worstAir > 3) warnings.push({ level: 'warn', msg: `Una zona di filigrana di ${selfInfo.worstAir.toFixed(1).replace('.', ',')} mm² resta senza appoggio: con queste proporzioni un ricciolo può cedere un po'. Avvicina l'altezza a 44,5 mm.` });
-    return { band2d, orn, rib, swash: rail, text, beads: [], kx, ky, TB, ZB, info, anchors, selfInfo };
+    const beads = [...pearlsR, ...pearlsR.map((b) => ({ ...b, c: [-b.c[0], b.c[1]] }))];
+    return { band2d, orn, rib, swash: rail, text, beads, kx, ky, TB, ZB, info, anchors, selfInfo, ornEnd: 120 * kx };
   }
 
   // ---------------------------------------------------------------- raster del profilo
@@ -834,7 +854,7 @@ export function makeEngine(wasm, opentype) {
     }
     const ang = Math.tan((P.supBranchAngle * Math.PI) / 180);
     const rTip = P.supTipD / 2, rB = P.supBranchD / 2;
-    const tMin = Math.min(0, P.beads ? P.ornT / 2 - 1.8 : 0), tMax = Math.max(P.bandT, P.textT, P.swashT, P.ornT + P.ribH, P.beads ? P.ornT / 2 + 1.8 : 0);
+    const tMin = Math.min(0, P.beads ? P.ornT / 2 - 1.8 : 0), tMax = Math.max(P.bandT + (P.bandDeco ? 0.6 : 0), P.textT, P.swashT, P.ornT + P.ribH, P.beads ? P.ornT / 2 + 1.8 : 0);
     const SA = new Uint32Array((W + 1) * (H + 1));            // somme cumulative: test di area libera O(1)
     for (let r = 0; r < H; r++) {
       let acc = 0;
@@ -978,7 +998,7 @@ export function makeEngine(wasm, opentype) {
         if (zTop <= 0) continue;
         // il tronco scende e si allontana dalla fascia, poi va dritto al piatto con un piede
         const rF = P.supFootD / 2;
-        const tF = side === 'in' ? -(P.supXY + rF + 0.3) : P.bandT + P.supXY + rF + 0.3;
+        const tF = side === 'in' ? -(P.supXY + rF + 0.3) : P.bandT + (P.bandDeco ? 0.6 : 0) + P.supXY + rF + 0.3;
         const tFeet = side === 'in' ? Math.min(tT, tF) : Math.max(tT, tF);
         const zK = Math.min(zTop, Math.max(P.supFootH + 0.8, zTop - Math.abs(tFeet - tT) / ang));
         seg([xc, zK, tFeet], [xc, zTop, tT], rT, rT * 0.9);
@@ -997,7 +1017,7 @@ export function makeEngine(wasm, opentype) {
   function generate(Pin, fontBuffers) {
     const P = { ...DEFAULTS, ...Pin };
     const selfModel = P.model === 'autoportante';
-    if (selfModel) { P.supports = false; P.beads = false; }
+    if (selfModel) P.supports = false;
     for (const [k, buf] of Object.entries(fontBuffers || {})) if (!fonts[k]) fonts[k] = opentype.parse(buf);
     const warnings = [];
     const t0 = Date.now();
@@ -1011,7 +1031,24 @@ export function makeEngine(wasm, opentype) {
       const solids = [ex(D.band2d, 0, P.bandT), ex(T(D.orn.subtract(D.swash)), 0, P.ornT), ex(D.swash, 0, selfModel ? P.textT : P.swashT)];
       if (P.ribH > 0.05 && !D.rib.isEmpty()) solids.push(ex(D.rib, P.ornT - 0.2, P.ornT + P.ribH));
       if (D.text) solids.push(ex(D.text, 0, P.textT));
-      for (const b of D.beads) solids.push(T(T(Manifold.sphere(b.r, 20)).translate([b.c[0], b.c[1], P.ornT / 2])));
+      for (const b of D.beads) {
+        solids.push(T(T(Manifold.sphere(b.r, 20)).translate([b.c[0], b.c[1], P.ornT / 2])));
+        if (b.cone) {                                   // cono a 45° sotto la perla: niente sbalzi in nessuna direzione
+          const h = b.r * Math.SQRT2 - b.r / Math.SQRT2;
+          solids.push(T(T(T(Manifold.cylinder(h, 0.02, b.r / Math.SQRT2, 20)).rotate([-90, 0, 0])).translate([b.c[0], b.c[1] - b.r * Math.SQRT2, P.ornT / 2])));
+        }
+      }
+      if (P.bandDeco) {
+        // rombi in rilievo sul fronte della fascia: lati a ≥ 50° dall'orizzontale, quindi autoportanti
+        const hh = Math.max(0.8, Math.min(1.85, P.bandH / 2 - 0.9)), hw = Math.min(1.5, hh * 0.82);
+        const zc = P.bandH / 2, S = D.ornEnd, polys = [];
+        const rh = (x, a, b) => [[x, zc - b], [x + a, zc], [x, zc + b], [x - a, zc]];
+        for (let x = 0; x <= S; x += 6) {
+          for (const sx of x === 0 ? [0] : [x, -x]) polys.push(rh(sx, hw, hh));
+          if (x + 3 <= S) for (const sx of [x + 3, -(x + 3)]) polys.push(rh(sx, hw * 0.45, hh * 0.5));
+        }
+        solids.push(ex(CS(polys), P.bandT - 0.3, P.bandT + 0.6));
+      }
       const teeth = [];
       if (P.teeth) {
         const s0 = band.quarter + 4, s1 = band.flareStart - 2;
