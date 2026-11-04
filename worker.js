@@ -35,12 +35,13 @@ function mk4sLines(P, fit, t) {
   return [
     t('rd.mk4s'),
     t('rd.mk4sOpen', { pr: pr.printer, ps: pr.print, fi: pr.filament }),
-    t('rd.mk4sSet', { lh: os.layer_height }),
+    t('rd.mk4sSet', { lh: os.layer_height, per: os.perimeters }),
+    fit ? null : t('rd.mk4sSlow'),
     t(fit ? 'rd.mk4sPosFit' : 'rd.mk4sPos'),
     t('rd.mk4sBed'),
     t('rd.mk4sBg'),
     '',
-  ];
+  ].filter((l) => l !== null);
 }
 
 function names(P, t) {
@@ -79,6 +80,7 @@ function readme(P, st, withSup, t) {
     withSup ? t('rd.twoStl') : null,
     t('rd.brim'),
     t('rd.mat') + (P.material === 'PLA' ? t('rd.matPla') : ''),
+    t('rd.matSilk'),
     t('rd.bridges'),
     '',
     t('rd.fit'),
@@ -122,7 +124,7 @@ self.onmessage = async (e) => {
         files.splice(1, 0, { name: N.tmf, data: await tmf.arrayBuffer() });
       }
       const clean = Object.fromEntries(Object.entries(params).filter(([k]) => !k.startsWith('_')));
-      files.push({ name: N.params, data: JSON.stringify({ app: 'Atelier Tiara', versione: 1, parametri: clean }, null, 2) });
+      files.push({ name: N.params, data: JSON.stringify({ app: 'Atelier Tiara', versione: 2, parametri: clean }, null, 2) });
       files.push({ name: N.readme, data: readme(params, r.stats, withSup, t) });
       const blob = await makeZip(files);
       self.postMessage({ id, kind, zip: blob, filename: `tiara-${nm}-${t('fn.' + (params.model === 'autoportante' ? 'autoportante' : 'decorata'))}.zip`, stats: r.stats, warnings: r.warnings, ok: true });

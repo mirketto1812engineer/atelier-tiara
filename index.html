@@ -242,7 +242,8 @@ const F = [
   { k: 'filigree', s: 'decoro', lv: 2, t: 'seg', opts: ['ricca', 'sobria'] },
   { k: 'beads', s: 'decoro', lv: 2, t: 'toggle' },
   { k: 'bandDeco', s: 'decoro', lv: 2, t: 'toggle' },
-  { k: 'ornT', s: 'decoro', lv: 3, t: 'range', u: 'mm', min: 1.6, max: 3, st: 0.1 },
+  { k: 'ornT', s: 'decoro', lv: 3, t: 'range', u: 'mm', min: 1.6, max: 4, st: 0.1 },
+  { only: 'autoportante', k: 'ornThicken', s: 'decoro', lv: 3, t: 'range', u: 'mm', min: 0, max: 0.5, st: 0.05 },
   { k: 'ribH', s: 'decoro', lv: 3, t: 'range', u: 'mm', min: 0, max: 1.2, st: 0.05 },
   { k: 'textT', s: 'decoro', lv: 3, t: 'range', u: 'mm', min: 2.4, max: 4.5, st: 0.1 },
   { only: 'decorata', k: 'swashT', s: 'decoro', lv: 3, t: 'range', u: 'mm', min: 1.8, max: 3.2, st: 0.1 },
@@ -272,7 +273,18 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* spazio non disponibile */ } },
 };
-let P = { ...DEFAULTS, ...store.get('tiara.params', {}) };
+// versione 2 dei parametri: filigrana più spessa dopo la prima stampa reale (1,7 mm × 2 mm si spezzava).
+// Chi aveva ancora i vecchi valori iniziali passa ai nuovi; i valori scelti a mano restano.
+const PV = 2;
+function migrate(p, from) {
+  if (from < 2) {
+    if (p.ornT === 2.0) p.ornT = (MODEL_DEFAULTS[p.model || DEFAULTS.model] || DEFAULTS).ornT;
+    if (p.ornThicken === undefined) p.ornThicken = DEFAULTS.ornThicken;
+  }
+  return p;
+}
+let P = migrate({ ...DEFAULTS, ...store.get('tiara.params', {}) }, store.get('tiara.pv', 1));
+store.set('tiara.pv', PV); store.set('tiara.params', P);
 let mode = store.get('tiara.mode', 1);
 const $ = (id) => document.getElementById(id);
 let lang = detectLang(store.get('tiara.lang', null));
@@ -564,7 +576,7 @@ $('downloadFit').addEventListener('click', (e) => doDownload('fit', e.currentTar
 $('saveParams').addEventListener('click', async () => {
   if (inClaude && !downloads) { say('m.noSave'); return; }
   const clean = Object.fromEntries(Object.entries(P).filter(([k]) => k in DEFAULTS));
-  try { await saveFile(`tiara-${t('fn.params')}.json`, new Blob([JSON.stringify({ app: 'Atelier Tiara', versione: 1, parametri: clean }, null, 2)], { type: 'application/json' })); say('m.paramsSaved'); }
+  try { await saveFile(`tiara-${t('fn.params')}.json`, new Blob([JSON.stringify({ app: 'Atelier Tiara', versione: PV, parametri: clean }, null, 2)], { type: 'application/json' })); say('m.paramsSaved'); }
   catch (err) { say(err && err.code === 'declined' ? 'm.cancel' : 'm.saveFail'); }
 });
 $('loadParams').addEventListener('change', async (e) => {
@@ -572,7 +584,9 @@ $('loadParams').addEventListener('change', async (e) => {
   try {
     const j = JSON.parse(await f.text());
     const p = j.parametri || j;
-    for (const k of Object.keys(DEFAULTS)) if (k in p) P[k] = p[k];
+    const q = { ...p }; if (!('ornThicken' in q)) q.ornThicken = undefined;
+    migrate(q, j.versione || 1);
+    for (const k of Object.keys(DEFAULTS)) if (q[k] !== undefined) P[k] = q[k];
     store.set('tiara.params', P); syncForm(); schedule();
     say('m.paramsLoaded', { f: f.name });
   } catch (err) { say('m.paramsBad'); }

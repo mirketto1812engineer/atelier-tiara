@@ -24,6 +24,11 @@ export function objectSettings(P, { fit = false } = {}) {
     seam_position: 'rear',          // la tiara è girata con la scritta verso di te: la cucitura finisce sul lato interno
     fill_density: '15%',
   };
+  if (!fit) {
+    // filigrana alta e sottile: pareti tutte a perimetri (niente riempimento rado nei tratti da 2-3 mm)
+    // e perimetri più lenti, così l'ugello non fa oscillare i gambi
+    Object.assign(s, { perimeters: 4, perimeter_speed: 45, external_perimeter_speed: 30, small_perimeter_speed: 25, gap_fill_speed: 30 });
+  }
   const withSup = !fit && P.model !== 'autoportante' && P.supports;
   if (withSup) s.layer_height = Math.min(0.3, Math.max(0.1, Math.round(P.supGap * 100) / 100));   // distanza Z supporti = 1 strato
   else s.layer_height = 0.2;
