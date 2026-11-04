@@ -131,6 +131,8 @@ select { width: 100%; border: 1px solid var(--line); background: var(--sunk); bo
 .fmt { display: flex; flex-direction: column; gap: 6px; }
 .fmt-l { font-size: 12.5px; font-weight: 500; }
 .fmt .help { min-height: 1.2em; }
+.fmt .warnline { margin-top: 4px; color: var(--ink); }
+.fmt .warnline a { color: var(--accent-text); word-break: break-all; }
 .dl .btn { flex: 1 1 auto; }
 .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--accent); flex: 0 1 auto; }
 .links { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; }
@@ -573,12 +575,21 @@ async function saveFile(filename, data) {
 if (!inClaude && 'serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('sw.js').catch(() => { /* senza cache offline: l'app funziona lo stesso */ });
 }
+const SITE = 'https://mirketto1812engineer.github.io/atelier-tiara/';
 // formato del download: tutto lo zip, solo STL o solo 3MF (vale anche per la fascia di prova)
 let dlFmt = ['zip', 'stl', '3mf'].includes(store.get('tiara.dlFmt', 'zip')) ? store.get('tiara.dlFmt', 'zip') : 'zip';
 function showFmt() {
   document.querySelectorAll('#fmt button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === dlFmt));
   $('download').textContent = t('btn.dl', { f: '.' + dlFmt });
-  $('fmt-h').textContent = t('h.dl.' + dlFmt);
+  const h = $('fmt-h');
+  h.textContent = t('h.dl.' + dlFmt);
+  if (inClaude && dlFmt !== 'zip') {
+    // qui la piattaforma accetta solo alcuni formati: il file singolo arriva in uno zip, dal sito no
+    const n = document.createElement('div'); n.className = 'warnline';
+    n.append(t('h.dl.claude') + ' ');
+    const a = Object.assign(document.createElement('a'), { href: SITE, target: '_blank', rel: 'noopener', textContent: SITE.replace('https://', '') });
+    n.append(a); h.append(n);
+  }
 }
 document.querySelectorAll('#fmt button').forEach((b) => b.addEventListener('click', () => { dlFmt = b.dataset.v; store.set('tiara.dlFmt', dlFmt); showFmt(); }));
 function exportZip(kind = 'export') {
