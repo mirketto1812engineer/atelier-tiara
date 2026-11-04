@@ -1,5 +1,5 @@
 // Cache dell'app: aggiornata a ogni nuova versione pubblicata.
-const CACHE = 'atelier-tiara-202611041436';
+const CACHE = 'atelier-tiara-202611041851';
 const FILES = [
  "./",
  "engine.js",

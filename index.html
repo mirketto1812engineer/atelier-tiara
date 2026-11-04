@@ -239,8 +239,8 @@ const F = [
   { k: 'teethH', s: 'taglia', lv: 3, t: 'range', u: 'mm', min: 0.6, max: 2, st: 0.1 },
 
   { k: 'height', s: 'decoro', lv: 2, t: 'range', u: 'mm', min: 45, max: 75, st: 0.5 },
-  { k: 'filigree', s: 'decoro', lv: 2, t: 'seg', opts: ['ricca', 'sobria'] },
-  { k: 'beads', s: 'decoro', lv: 2, t: 'toggle' },
+  { k: 'filigree', s: 'decoro', lv: 2, t: 'seg', opts: ['robusta', 'ricca', 'sobria'] },
+  { k: 'beads', s: 'decoro', lv: 2, t: 'toggle', hideIf: (p) => p.model === 'autoportante' && p.filigree === 'robusta' },
   { k: 'bandDeco', s: 'decoro', lv: 2, t: 'toggle' },
   { k: 'ornT', s: 'decoro', lv: 3, t: 'range', u: 'mm', min: 1.6, max: 4, st: 0.1 },
   { only: 'autoportante', k: 'ornThicken', s: 'decoro', lv: 3, t: 'range', u: 'mm', min: 0, max: 0.5, st: 0.05 },
@@ -275,12 +275,14 @@ const store = {
 };
 // versione 2 dei parametri: filigrana più spessa dopo la prima stampa reale (1,7 mm × 2 mm si spezzava).
 // Chi aveva ancora i vecchi valori iniziali passa ai nuovi; i valori scelti a mano restano.
-const PV = 2;
+const PV = 3;
 function migrate(p, from) {
   if (from < 2) {
     if (p.ornT === 2.0) p.ornT = (MODEL_DEFAULTS[p.model || DEFAULTS.model] || DEFAULTS).ornT;
     if (p.ornThicken === undefined) p.ornThicken = DEFAULTS.ornThicken;
   }
+  // versione 3: la seconda stampa ha perso perle e un gambo → l'autoportante passa alla filigrana 'robusta'
+  if (from < 3 && p.model === 'autoportante' && (p.filigree === 'ricca' || p.filigree === undefined)) p.filigree = 'robusta';
   return p;
 }
 let P = migrate({ ...DEFAULTS, ...store.get('tiara.params', {}) }, store.get('tiara.pv', 1));
@@ -363,7 +365,11 @@ function applyMode() {
   document.querySelectorAll('.modes button').forEach((b) => b.setAttribute('aria-pressed', +b.dataset.mode === mode));
   for (const w of form.querySelectorAll('.field')) {
     const f = F.find((x) => x.k === w.dataset.k);
-    w.hidden = +w.dataset.lv > mode || (f.only && f.only !== P.model) || (f.pr && f.pr !== P.printer);
+    w.hidden = +w.dataset.lv > mode || (f.only && f.only !== P.model) || (f.pr && f.pr !== P.printer) || (f.hideIf ? f.hideIf(P) : false);
+    if (f.k === 'filigree') {
+      w.querySelectorAll('[data-v=robusta]').forEach((b) => { b.hidden = P.model !== 'autoportante'; });
+      const h = w.querySelector('.help'); if (h) h.hidden = P.model !== 'autoportante';
+    }
     w.classList.toggle('dim', !!f.sup && !P.supports);
   }
   for (const sid of SECTIONS) {
@@ -385,7 +391,7 @@ function set(k, v) {
   }
   P[k] = v;
   store.set('tiara.params', P);
-  if (k === 'supports' || k === 'printer') applyMode();
+  if (k === 'supports' || k === 'printer' || k === 'filigree') applyMode();
   if (k === 'font') setTextFont();
   schedule();
 }

@@ -27,8 +27,8 @@ export const FONTS = {
 
 // valori che cambiano col modello (se l'utente non li ha toccati)
 export const MODEL_DEFAULTS = {
-  decorata: { font: 'great-vibes', height: 58.5, textW: 74, textH: 22, dotStyle: 'stella', ornT: 2.4 },
-  autoportante: { font: 'classico', height: 44.5, textW: 62, textH: 13, dotStyle: 'originale', ornT: 3.0 },
+  decorata: { font: 'great-vibes', height: 58.5, textW: 74, textH: 22, dotStyle: 'stella', ornT: 2.4, filigree: 'ricca' },
+  autoportante: { font: 'classico', height: 44.5, textW: 62, textH: 13, dotStyle: 'originale', ornT: 3.0, filigree: 'robusta' },
 };
 
 const MATERIALS = { PETG: { E: 2000, eps: 0.035, rho: 1.27 }, PLA: { E: 3300, eps: 0.02, rho: 1.24 } };
@@ -296,7 +296,7 @@ function filigree(P, kx, ky, ZB) {
   const Y = (y) => ZB + (y - 5.5) * ky;            // coordinate di progetto con fascia 5.5
   const pt = ([x, y]) => [X(x), Y(y)];
   const z = 5.5, t = 36.5;
-  const rich = P.filigree === 'ricca';
+  const rich = P.filigree !== 'sobria';            // 'robusta' vale solo per l'autoportante: qui equivale a ricca
   const orn = [], rib = [], beads = [];
   const addRib = (path, rw) => { if (path.length > 6) rib.push(...varStroke(path, (u) => rw * (1 - 0.35 * u))); };
   const S = (ctrl, opt = {}) => {
@@ -361,7 +361,12 @@ function filigree(P, kx, ky, ZB) {
 // Filigrana AUTOPORTANTE (prima versione): ogni ricciolo chiude con l'occhio appoggiato al giro sotto
 // e ha un gambo che lo regge dalla fascia; foglie ripide; la scritta poggia su una barretta.
 // Coordinate di progetto: fascia alta 5.5, linea di base scritta a 31.5 (5.5 + 26).
-function filigreeSelf(rich = true, withPearls = true, pearlMin = 0) {
+// Variante 'robusta' (dopo due stampe reali): niente perle sulle punte (si staccavano tutte), ogni ricciolo
+// poggia su due gambe a V invece che su una, i gambi alti hanno un raggio obliquo che li lega alla fascia
+// a bassa quota, e i ganci sottili interni diventano foglie con la radice larga.
+function filigreeSelf(variant = 'ricca', withPearls = true, pearlMin = 0) {
+  const rich = variant !== 'sobria', robust = variant === 'robusta';
+  if (robust) withPearls = false;
   const orn = [], rib = [], pearls = [], pearlPolys = [];
   const z = 5.5, TBH = 26.0;
   // larghezze dei tratti (prima dell'ispessimento globale): la stampa ha mostrato che 1,7 mm sotto un ricciolo alto si spezza
@@ -401,9 +406,17 @@ function filigreeSelf(rich = true, withPearls = true, pearlMin = 0) {
     rib.push(circle(ec, er * 0.55, 16));
     return [c[0], c[1] - r];
   };
-  const support = (bottom, xb, wTop = 2.7, wBot = 2.2, sway = 0.6) => {
+  const support = (bottom, xb, wTop = 2.7, wBot = 2.2, sway = 0.6, xb2 = null) => {
     const [bx, by] = bottom;
     stroke(catmull([[xb, z - 0.6], [(xb + bx) / 2 + sway, (z + by) / 2], [bx, by + 0.9]], 30), wBot, wTop);
+    // seconda gamba: il ricciolo poggia su un triangolo, non su una colonna sola
+    if (robust && xb2 !== null) stroke([[xb2, z - 0.6], [bx, by + 0.9]], wBot, wTop);
+  };
+  // raggio: puntone obliquo dalla fascia al gambo, a bassa quota (≥ 50° dall'orizzontale, quindi autoportante)
+  const brace = (pts, h, xFoot, w = 2.1) => {
+    if (!robust) return;
+    const p = pts.find((q) => q[1] >= z + h) || pts[pts.length - 1];
+    stroke([[xFoot, z - 0.6], [p[0], p[1]]], w + 0.4, w);
   };
   // perla a goccia: sfera su cono a 45° (autoportante in ogni direzione); la punta entra 0.6 mm nel tratto
   const pearlOn = (x, topY, r) => {
@@ -413,7 +426,7 @@ function filigreeSelf(rich = true, withPearls = true, pearlMin = 0) {
     pearls.push({ c: [x, cy], r });
     pearlPolys.push(circle([x, cy], r, 28), ccw([[x - s, cy - s], [x + s, cy - s], [x, cy - r * Math.SQRT2]]));
   };
-  const hook = (xb, c, r, hA, ax, { w = W2, ccwDir = true, supX = null, mids = null, pr = 0 } = {}) => {
+  const hook = (xb, c, r, hA, ax, { w = W2, ccwDir = true, supX = null, sup2 = null, mids = null, pr = 0, br = null } = {}) => {
     const side = ccwDir ? -1 : 1;
     const start = [c[0] + side * r, c[1]];
     const way = [[xb, z - 0.6]];
@@ -423,42 +436,47 @@ function filigreeSelf(rich = true, withPearls = true, pearlMin = 0) {
     const pts = catmull(way, 34);
     stroke(pts, w, w * 0.95);
     const bottom = curl(c, r, w * 0.95, ccwDir);
-    support(bottom, supX !== null ? supX : bottom[0] + 1.6);
+    support(bottom, supX !== null ? supX : bottom[0] + 1.6, 2.7, 2.2, 0.6, sup2);
+    if (br) brace(pts, br[0], br[1]);
     if (pr) { const t = pts.reduce((m, p) => (p[1] > m[1] ? p : m), pts[0]); pearlOn(t[0], t[1] + w / 2, pr); }
   };
   // giglio centrale
   lf([0, z - 0.6], [0, z + TBH - 0.3], 8.6, 0, true);   // regge il centro della barretta: radici larghe ai due capi
   lf([0.4, z - 1.6], [17.0, z + 0.3], 5.2, 0.10);
   lf([7.0, z + 12.0], [12.6, z + 19.6], 3.0, 0.10);
-  if (rich) lf([12.5, z + 1.0], [15.0, z + 9.8], 2.6, -0.10);           // foglia ripida sulla foglia distesa
+  if (rich && !robust) lf([12.5, z + 1.0], [15.0, z + 9.8], 2.6, -0.10);  // foglia ripida sulla foglia distesa
   // corno d'ariete interno: tocca la barretta e regge il centro
   const railBot = TBH - 1.9, c1 = [20.6, z + 14.6], r1 = 3.9;
   stroke(catmull([[3.2, z + 0.4], [6.2, z + 9.0], [9.0, z + 17.5], [13.5, z + railBot - 0.8], [19.5, z + railBot - 1.0],
                   [23.6, z + 20.6], [c1[0] + r1, c1[1] + 1.5], [c1[0] + r1, c1[1]]], 34), W1, W2);
-  support(curl(c1, r1, W2, false), 23.0, 2.7, 2.2, 0.3);
-  if (rich) lf([26.2, z - 0.6], [28.4, z + 8.8], 2.4, -0.10);           // foglia tra i due gambi
+  support(curl(c1, r1, W2, false), 23.0, 2.7, 2.2, 0.3, 16.0);
+  if (rich && !robust) lf([26.2, z - 0.6], [28.4, z + 8.8], 2.4, -0.10);  // foglia tra i due gambi
   // grande arco: il suo ricciolo regge l'estremità della barretta
-  hook(55.0, [34.9, z + 21.6], 3.8, 30.6, 40.0, { w: W1, supX: 29.2, mids: [[52.2, 10.5], [49.0, 21.5], [45.0, 28.6]], pr: 1.8 });
-  lf([32.4, z + 7.5], [37.8, z + 15.6], 3.4, 0.10);
-  if (rich) {
+  hook(55.0, [34.9, z + 21.6], 3.8, 30.6, 40.0, { w: W1, supX: 29.2, sup2: 41.0, mids: [[52.2, 10.5], [49.0, 21.5], [45.0, 28.6]], pr: 1.8, br: [9.5, 61.0] });
+  if (!robust) lf([32.4, z + 7.5], [37.8, z + 15.6], 3.4, 0.10);
+  if (robust) {
+    lf([47.0, z - 0.6], [44.6, z + 16.5], 4.0, 0.06);                    // al posto del gancio sottile dentro l'arco
+  } else if (rich) {
     hook(46.5, [41.6, z + 13.8], 2.4, 20.0, 44.2, { w: W3, pr: 1.3 });   // gancio dentro l'arco
     hook(63.0, [58.6, z + 9.5], 2.1, 15.0, 60.6, { w: W3, pr: 1.2 });    // gancio tra arco e cascata
   } else lf([45.5, z - 0.6], [41.0, z + 10.5], 3.6, 0.12);
   // cascata laterale
-  const cascade = (xb, hA, r, pr) => {
+  const cascade = (xb, hA, r, pr, spread, br) => {
     const w = r > 3 ? W2 : W3;
     const cx = xb - r - w - 1.7, cy = z + hA - r - w - 1.5;
-    hook(xb, [cx, cy], r, hA, (cx - r + xb) / 2 + 0.6, { w, mids: [[xb - 0.4, 0.5 * hA], [xb - 1.2, 0.85 * hA]], pr });
+    hook(xb, [cx, cy], r, hA, (cx - r + xb) / 2 + 0.6, { w, mids: [[xb - 0.4, 0.5 * hA], [xb - 1.2, 0.85 * hA]], pr, sup2: cx - spread, br });
   };
-  cascade(77.0, 25.0, 3.7, 1.5);
-  cascade(97.0, 18.0, 3.1, 1.4);
-  cascade(113.0, 12.5, 2.5, 1.2);
+  cascade(77.0, 25.0, 3.7, 1.5, 4.6, [8.5, 82.5]);
+  cascade(97.0, 18.0, 3.1, 1.4, 4.0, [7.5, 101.8]);
+  cascade(113.0, 12.5, 2.5, 1.2, 2.8, [5.0, 117.0]);
   if (rich) {
     lf([77.6, z + 7.0], [80.8, z + 17.2], 2.6, -0.08);                   // foglie ripide sui gambi della cascata
     lf([97.5, z + 5.0], [100.4, z + 12.6], 2.3, -0.08);
   } else lf([61.5, z - 0.6], [65.5, z + 10.0], 3.3, -0.12);
-  lf([82.0, z - 0.6], [85.8, z + 8.5], 3.0, -0.12);
-  lf([101.0, z - 0.6], [104.2, z + 6.6], 2.7, -0.12);
+  if (!robust) {                                                          // nella robusta qui ci sono i raggi
+    lf([82.0, z - 0.6], [85.8, z + 8.5], 3.0, -0.12);
+    lf([101.0, z - 0.6], [104.2, z + 6.6], 2.7, -0.12);
+  }
   lf([116.5, z - 0.6], [119.0, z + 5.0], 2.5, -0.12);
   return { orn, rib, pearls, pearlPolys };
 }
@@ -708,7 +726,7 @@ export function makeEngine(wasm, opentype) {
     if (kx < ky * 0.9) warnings.push({ level: 'info', code: 'narrowSelf', msg: 'Decorazione ristretta in larghezza per non arrivare dietro le orecchie (le pendenze restano stampabili).' });
     const map = (polys) => polys.map((p) => p.map(([x, y]) => [x * kx, ZB + (y - 5.5) * ky]));
     const kr = Math.sqrt(kx * ky);
-    const Fs = filigreeSelf(P.filigree === 'ricca', P.beads, (P.ornT / 2 + 0.45) / kr);
+    const Fs = filigreeSelf(P.filigree, P.beads, (P.ornT / 2 + 0.45) / kr);
     const right = map(Fs.orn), ribR = map(Fs.rib), pearlR = map(Fs.pearlPolys);
     const pearlsR = Fs.pearls.map((p) => ({ c: [p.c[0] * kx, ZB + (p.c[1] - 5.5) * ky], r: p.r * kr, cone: true }));
     let orn = CS([...right, ...mirrorPolys(right)]);
