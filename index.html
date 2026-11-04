@@ -128,6 +128,9 @@ select { width: 100%; border: 1px solid var(--line); background: var(--sunk); bo
 .btn { border: 0; border-radius: var(--r); padding: 11px 14px; font-weight: 600; cursor: pointer; background: var(--accent); color: var(--accent-ink); font-size: 14px; }
 .btn:disabled { opacity: .55; cursor: progress; }
 .dl { display: flex; gap: 8px; flex-wrap: wrap; }
+.fmt { display: flex; flex-direction: column; gap: 6px; }
+.fmt-l { font-size: 12.5px; font-weight: 500; }
+.fmt .help { min-height: 1.2em; }
 .dl .btn { flex: 1 1 auto; }
 .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--accent); flex: 0 1 auto; }
 .links { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; }
@@ -190,8 +193,17 @@ select { width: 100%; border: 1px solid var(--line); background: var(--sunk); bo
         <form id="form" autocomplete="off"></form>
       </div>
       <div class="foot">
+        <div class="fmt">
+          <span class="fmt-l" id="fmt-l" data-i="dl.format">File da scaricare</span>
+          <div class="seg" id="fmt" role="group" aria-labelledby="fmt-l">
+            <button type="button" data-v="zip" data-i="dl.zip">Tutto (.zip)</button>
+            <button type="button" data-v="stl" data-i="dl.stl">Solo STL</button>
+            <button type="button" data-v="3mf" data-i="dl.3mf">Solo 3MF</button>
+          </div>
+          <div class="help" id="fmt-h"></div>
+        </div>
         <div class="dl">
-          <button class="btn" type="button" id="download" data-i="btn.dl">Scarica la tiara (.zip)</button>
+          <button class="btn" type="button" id="download">Scarica la tiara (.zip)</button>
           <button class="btn ghost" type="button" id="downloadFit" data-i="btn.fit">Fascia di prova</button>
         </div>
         <div class="links">
@@ -561,8 +573,16 @@ async function saveFile(filename, data) {
 if (!inClaude && 'serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('sw.js').catch(() => { /* senza cache offline: l'app funziona lo stesso */ });
 }
+// formato del download: tutto lo zip, solo STL o solo 3MF (vale anche per la fascia di prova)
+let dlFmt = ['zip', 'stl', '3mf'].includes(store.get('tiara.dlFmt', 'zip')) ? store.get('tiara.dlFmt', 'zip') : 'zip';
+function showFmt() {
+  document.querySelectorAll('#fmt button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.v === dlFmt));
+  $('download').textContent = t('btn.dl', { f: '.' + dlFmt });
+  $('fmt-h').textContent = t('h.dl.' + dlFmt);
+}
+document.querySelectorAll('#fmt button').forEach((b) => b.addEventListener('click', () => { dlFmt = b.dataset.v; store.set('tiara.dlFmt', dlFmt); showFmt(); }));
 function exportZip(kind = 'export') {
-  return new Promise((res) => { const id = ++seq; waiters[id] = res; worker.postMessage({ id, kind, params: { ...P }, lang }); });
+  return new Promise((res) => { const id = ++seq; waiters[id] = res; worker.postMessage({ id, kind, params: { ...P }, lang, format: dlFmt, wrap: inClaude }); });
 }
 async function doDownload(kind, btn, waitKey) {
   if (inClaude && !downloads) { say('m.noSave'); return; }
@@ -572,7 +592,8 @@ async function doDownload(kind, btn, waitKey) {
   if (!d.ok) { say('m.fail'); return; }
   try {
     await saveFile(d.filename, d.zip);
-    say('m.saved', { f: d.filename, mb: d.zip.size / 1048576 });
+    if (d.inner) say('m.savedWrapped', { f: d.filename, mb: d.zip.size / 1048576, inner: d.inner });
+    else say('m.saved', { f: d.filename, mb: d.zip.size / 1048576 });
   } catch (err) {
     say(err && err.code === 'declined' ? 'm.cancel' : 'm.saveFail');
   }
@@ -608,7 +629,7 @@ function applyLang() {
   langSel.value = lang;
   document.querySelectorAll('[data-i]').forEach((el) => { el.textContent = t(el.dataset.i); });
   document.querySelectorAll('[data-ia]').forEach((el) => el.setAttribute('aria-label', t(el.dataset.ia)));
-  buildForm(); setTextFont();
+  buildForm(); setTextFont(); showFmt();
   status(lastStatus[0], lastStatus[1], lastStatus[2]);
   if (lastMsg) say(lastMsg[0], lastMsg[1]);
   if (lastR) report(lastR); else notes(lastNotes);

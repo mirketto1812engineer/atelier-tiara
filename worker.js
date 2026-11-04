@@ -95,6 +95,17 @@ self.onmessage = async (e) => {
   const { id, kind } = e.data;
   const params = { ...DEFAULTS, ...(e.data.params || {}) };
   const lang = LANGS[e.data.lang] ? e.data.lang : 'it';
+  const fmt = ['stl', '3mf'].includes(e.data.format) ? e.data.format : 'zip';
+  // file singolo: dentro claude.ai si possono salvare solo alcuni formati (non .stl/.3mf), quindi lì va in uno zip
+  const send = async (id, kind, name, data, r) => {
+    const type = name.endsWith('.stl') ? 'model/stl' : 'model/3mf';
+    if (e.data.wrap) {
+      const blob = await makeZip([{ name, data }]);
+      self.postMessage({ id, kind, zip: blob, filename: name + '.zip', inner: name, stats: r.stats, warnings: r.warnings, ok: true });
+    } else {
+      self.postMessage({ id, kind, zip: new Blob([data], { type }), filename: name, stats: r.stats, warnings: r.warnings, ok: true });
+    }
+  };
   const t = (k, p) => tr(lang, k, p);
   try {
     const eng = await ready;
@@ -111,6 +122,15 @@ self.onmessage = async (e) => {
       const nm = slug(params.text);
       const N = names(params, t);
       const withSup = !!r.supports;
+      if (fmt === 'stl') {                     // un solo STL: con i supporti dentro, se ci sono
+        return send(id, kind, withSup ? N.withSup : N.tiara, stlBinary(withSup ? [r.tiara, r.supports] : [r.tiara], 'tiara ' + nm), r);
+      }
+      if (fmt === '3mf') {
+        const parts = [{ name: t('fn.tiara'), mesh: r.tiara }];
+        if (withSup) parts.push({ name: t('fn.supPart'), mesh: r.supports });
+        const tmf = await make3MF({ objectName: `Tiara ${params.text || ''}`.trim(), parts, settings: objectSettings(params) });
+        return send(id, kind, N.tmf, await tmf.arrayBuffer(), r);
+      }
       const files = [{ name: N.tiara, data: stlBinary([r.tiara], 'tiara ' + nm) }];
       if (withSup) {
         files.unshift({ name: N.withSup, data: stlBinary([r.tiara, r.supports], 'tiara+supports ' + nm) });
@@ -132,6 +152,11 @@ self.onmessage = async (e) => {
       const r = eng.generate({ ...params, _prev: true }, fonts);
       if (!r.ok) { self.postMessage({ id, kind, result: r }); return; }
       const N = names(params, t);
+      if (fmt === 'stl') return send(id, kind, N.fit, stlBinary([r.fit], 'fit band'), r);
+      if (fmt === '3mf') {
+        const tmf = await make3MF({ objectName: t('btn.fit'), parts: [{ name: t('btn.fit'), mesh: r.fit }], settings: objectSettings(params, { fit: true }) });
+        return send(id, kind, N.fitTmf, await tmf.arrayBuffer(), r);
+      }
       const files = [{ name: N.fit, data: stlBinary([r.fit], 'fit band') }];
       if (params.printer === 'mk4s') {
         const tmf = await make3MF({ objectName: t('btn.fit'), parts: [{ name: t('btn.fit'), mesh: r.fit }], settings: objectSettings(params, { fit: true }) });
